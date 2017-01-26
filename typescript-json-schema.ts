@@ -32,7 +32,7 @@ export type Definition = {
     anyOf?: Definition[],
     title?: string,
     type?: string | string[],
-    definitions?: {[key: string]: any},
+    definitions?: { [key: string]: any },
     format?: string,
     items?: Definition,
     minItems?: number,
@@ -106,7 +106,7 @@ export class JsonSchemaGenerator {
     /**
      * Parse the comments of a symbol into the definition and other annotations.
      */
-    private parseCommentsIntoDefinition(symbol: ts.Symbol, definition: {description?: string}, otherAnnotations: {}): void {
+    private parseCommentsIntoDefinition(symbol: ts.Symbol, definition: { description?: string }, otherAnnotations: {}): void {
         if (!symbol) {
             return;
         }
@@ -122,9 +122,23 @@ export class JsonSchemaGenerator {
         const jsdocs = symbol.getJsDocTags();
         jsdocs.forEach(doc => {
             // if we have @TJS-... annotations, we have to parse them
-            const [name, text] = doc.name === "TJS" ? new RegExp(REGEX_TJS_JSDOC).exec(doc.text).slice(1,3) : [doc.name, doc.text];
+            const [name, text] = doc.name === "TJS" ? new RegExp(REGEX_TJS_JSDOC).exec(doc.text).slice(1, 3) : [doc.name, doc.text];
             if (JsonSchemaGenerator.validationKeywords[name]) {
-                definition[name] = this.parseValue(text);
+                if (name === "default") {
+                    switch (text) {
+                        case "[]":
+                            definition[name] = [];
+                            return;
+                        case "{}":
+                            definition[name] = {};
+                            return;
+                        default:
+                            definition[name] = this.parseValue(text);
+                            return;
+                    }
+                } else {
+                    definition[name] = this.parseValue(text);
+                }
             } else {
                 // special annotations
                 otherAnnotations[doc.name] = true;
@@ -205,7 +219,7 @@ export class JsonSchemaGenerator {
                     const value = this.extractLiteralValue(propertyType);
                     if (value !== undefined) {
                         definition.type = typeof value;
-                        definition.enum = [ value ];
+                        definition.enum = [value];
                     } else if (symbol && symbol.getName() === "Array") {
                         const arrayType = (<ts.TypeReference>propertyType).typeArguments[0];
                         definition.type = "array";
@@ -215,7 +229,7 @@ export class JsonSchemaGenerator {
                         let info: any = propertyType;
                         try {
                             info = JSON.stringify(propertyType);
-                        } catch(err) {}
+                        } catch (err) { }
                         console.error("Unsupported type: ", info);
                         // definition = this.getTypeDefinition(propertyType, tc);
                     }
@@ -228,7 +242,7 @@ export class JsonSchemaGenerator {
     private getReferencedTypeSymbol(prop: ts.Symbol, tc: ts.TypeChecker): ts.Symbol {
         const decl = prop.getDeclarations();
         if (decl && decl.length) {
-            const type = (<ts.TypeReferenceNode> (<any> decl[0]).type);
+            const type = (<ts.TypeReferenceNode>(<any>decl[0]).type);
             if (type && (type.kind & ts.SyntaxKind.TypeReference) && type.typeName) {
                 return tc.getSymbolAtLocation(type.typeName);
             }
@@ -431,7 +445,7 @@ export class JsonSchemaGenerator {
 
         const modifierFlags = ts.getCombinedModifierFlags(node);
 
-        if(props.length === 0 && clazz.members && clazz.members.length === 1 && clazz.members[0].kind === ts.SyntaxKind.IndexSignature) {
+        if (props.length === 0 && clazz.members && clazz.members.length === 1 && clazz.members[0].kind === ts.SyntaxKind.IndexSignature) {
             // for case "array-types"
             const indexSignature = <ts.IndexSignatureDeclaration>clazz.members[0];
             if (indexSignature.parameters.length !== 1) {
@@ -535,7 +549,7 @@ export class JsonSchemaGenerator {
             }
 
             if (def.type !== "null") {
-                def.type = [ def.type, "null" ];
+                def.type = [def.type, "null"];
             }
         }
         return true;
@@ -554,7 +568,7 @@ export class JsonSchemaGenerator {
                         delete def[k];
                     }
                 }
-                def.anyOf = [ subdef, { type: "null" } ];
+                def.anyOf = [subdef, { type: "null" }];
             }
         }
         return def;
@@ -581,7 +595,7 @@ export class JsonSchemaGenerator {
         if (!asTypeAliasRef) {
             if (isRawType || typ.getFlags() & ts.TypeFlags.Object && (<ts.ObjectType>typ).objectFlags & ts.ObjectFlags.Anonymous) {
                 asRef = false;  // raw types and inline types cannot be reffed,
-                                // unless we are handling a type alias
+                // unless we are handling a type alias
             }
         }
 
@@ -598,7 +612,7 @@ export class JsonSchemaGenerator {
 
         if (asRef) {
             returnedDefinition = {
-                "$ref":  "#/definitions/" + fullTypeName
+                "$ref": "#/definitions/" + fullTypeName
             };
         }
 
@@ -625,7 +639,7 @@ export class JsonSchemaGenerator {
                 this.getUnionDefinition(typ as ts.UnionType, prop, tc, unionModifier, definition);
             } else if (typ.flags & ts.TypeFlags.Intersection) {
                 definition.allOf = [];
-                const types = (<ts.IntersectionType> typ).types;
+                const types = (<ts.IntersectionType>typ).types;
                 for (let i = 0; i < types.length; ++i) {
                     definition.allOf.push(this.getTypeDefinition(types[i], tc));
                 }
@@ -650,7 +664,7 @@ export class JsonSchemaGenerator {
     }
 
     public getSchemaForSymbol(symbolName: string, includeReffedDefinitions: boolean = true): Definition {
-        if(!this.allSymbols[symbolName]) {
+        if (!this.allSymbols[symbolName]) {
             throw `type ${symbolName} not found`;
         }
         let def = this.getTypeDefinition(this.allSymbols[symbolName], this.tc, this.args.useRootRef);
@@ -707,7 +721,7 @@ export function generateSchema(program: ts.Program, fullTypeName: string, args =
                     || node.kind === ts.SyntaxKind.InterfaceDeclaration
                     || node.kind === ts.SyntaxKind.EnumDeclaration
                     || node.kind === ts.SyntaxKind.TypeAliasDeclaration
-                    ) {
+                ) {
                     const symbol: ts.Symbol = (<any>node).symbol;
                     let fullName = tc.getFullyQualifiedName(symbol);
 
@@ -753,9 +767,9 @@ export function generateSchema(program: ts.Program, fullTypeName: string, args =
     } else {
         diagnostics.forEach((diagnostic) => {
             let message = ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n");
-            if(diagnostic.file) {
-            let { line, character } = diagnostic.file.getLineAndCharacterOfPosition(diagnostic.start);
-            console.warn(`${diagnostic.file.fileName} (${line + 1},${character + 1}): ${message}`);
+            if (diagnostic.file) {
+                let { line, character } = diagnostic.file.getLineAndCharacterOfPosition(diagnostic.start);
+                console.warn(`${diagnostic.file.fileName} (${line + 1},${character + 1}): ${message}`);
             } else {
                 console.warn(message);
             }
@@ -793,9 +807,9 @@ export function exec(filePattern: string, fullTypeName: string, args = getDefaul
 
     const definition = generateSchema(program, fullTypeName, args);
 
-    const json = stringify(definition, {space: 4}) + "\n\n";
+    const json = stringify(definition, { space: 4 }) + "\n\n";
     if (args.out) {
-        require("fs").writeFile(args.out, json, function(err: Error) {
+        require("fs").writeFile(args.out, json, function (err: Error) {
             if (err) {
                 console.error("Unable to write output file: " + err.message);
             }
@@ -812,25 +826,25 @@ export function run() {
         .usage(helpText)
         .demand(2)
         .boolean("refs").default("refs", defaultArgs.useRef)
-            .describe("refs", "Create shared ref definitions.")
+        .describe("refs", "Create shared ref definitions.")
         .boolean("aliasRefs").default("aliasRefs", defaultArgs.useTypeAliasRef)
-            .describe("aliasRefs", "Create shared ref definitions for the type aliases.")
+        .describe("aliasRefs", "Create shared ref definitions for the type aliases.")
         .boolean("topRef").default("topRef", defaultArgs.useRootRef)
-            .describe("topRef", "Create a top-level ref definition.")
+        .describe("topRef", "Create a top-level ref definition.")
         .boolean("titles").default("titles", defaultArgs.useTitle)
-            .describe("titles", "Creates titles in the output schema.")
+        .describe("titles", "Creates titles in the output schema.")
         .boolean("defaultProps").default("defaultProps", defaultArgs.useDefaultProperties)
-            .describe("defaultProps", "Create default properties definitions.")
+        .describe("defaultProps", "Create default properties definitions.")
         .boolean("noExtraProps").default("noExtraProps", defaultArgs.disableExtraProperties)
-            .describe("noExtraProps", "Disable additional properties in objects by default.")
+        .describe("noExtraProps", "Disable additional properties in objects by default.")
         .boolean("propOrder").default("propOrder", defaultArgs.usePropertyOrder)
-            .describe("propOrder", "Create property order definitions.")
+        .describe("propOrder", "Create property order definitions.")
         .boolean("required").default("required", defaultArgs.generateRequired)
-            .describe("required", "Create required array for non-optional properties.")
+        .describe("required", "Create required array for non-optional properties.")
         .boolean("strictNullChecks").default("strictNullChecks", defaultArgs.strictNullChecks)
-            .describe("strictNullChecks", "Make values non-nullable by default.")
+        .describe("strictNullChecks", "Make values non-nullable by default.")
         .alias("out", "o")
-            .describe("out", "The output file, defaults to using stdout")
+        .describe("out", "The output file, defaults to using stdout")
         .argv;
 
     exec(args._[0], args._[1], {
