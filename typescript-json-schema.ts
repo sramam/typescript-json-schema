@@ -125,17 +125,10 @@ export class JsonSchemaGenerator {
             const [name, text] = doc.name === "TJS" ? new RegExp(REGEX_TJS_JSDOC).exec(doc.text).slice(1, 3) : [doc.name, doc.text];
             if (JsonSchemaGenerator.validationKeywords[name]) {
                 if (name === "default") {
-                    switch (text) {
-                        case "[]":
-                            definition[name] = [];
-                            return;
-                        case "{}":
-                            definition[name] = {};
-                            return;
-                        default:
-                            definition[name] = this.parseValue(text);
-                            return;
-                    }
+                    // provide the sbility to set defaults of type arrays & object.
+                    const arr = text.match(/^\[(.*)\]$/);
+                    const obj = text.match(/^\{(.*)\}$/);
+                    definition[name] = (arr || obj) ? JSON.parse(text) : this.parseValue(text);
                 } else {
                     definition[name] = this.parseValue(text);
                 }

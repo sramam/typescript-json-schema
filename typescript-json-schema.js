@@ -65,17 +65,9 @@ var JsonSchemaGenerator = (function () {
             var _a = doc.name === "TJS" ? new RegExp(REGEX_TJS_JSDOC).exec(doc.text).slice(1, 3) : [doc.name, doc.text], name = _a[0], text = _a[1];
             if (JsonSchemaGenerator.validationKeywords[name]) {
                 if (name === "default") {
-                    switch (text) {
-                        case "[]":
-                            definition[name] = [];
-                            return;
-                        case "{}":
-                            definition[name] = {};
-                            return;
-                        default:
-                            definition[name] = _this.parseValue(text);
-                            return;
-                    }
+                    var arr = text.match(/^\[(.*)\]$/);
+                    var obj = text.match(/^\{(.*)\}$/);
+                    definition[name] = (arr || obj) ? JSON.parse(text) : _this.parseValue(text);
                 }
                 else {
                     definition[name] = _this.parseValue(text);
